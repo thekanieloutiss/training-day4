@@ -1,0 +1,36 @@
+services:
+  srs:
+    image: ossrs/srs:5
+    container_name: srs-webrtc
+    restart: unless-stopped
+    # CANDIDATE tells SRS which IP to advertise in ICE. Set it to the host's
+    # LAN IP (or public IP). Example: CANDIDATE=192.168.1.10 docker compose up
+    environment:
+      - CANDIDATE=${CANDIDATE:-127.0.0.1}
+    ports:
+      - "1935:1935"        # RTMP
+      - "1985:1985"        # HTTP API + WHIP/WHEP signaling
+      - "8080:8080"        # HTTP server (built-in players, FLV/HLS)
+      - "8000:8000/udp"    # WebRTC media (UDP)
+    volumes:
+      - ./srs.conf:/usr/local/srs/conf/srs.conf:ro
+    command: ["./objs/srs", "-c", "conf/srs.conf"]
+
+  # Remote-control relay: kiosks + dashboard connect here; commands are routed
+  # dashboard -> device by device id. Runs on the same host/IP as SRS.
+  relay:
+    build: ./relay
+    container_name: control-relay
+    restart: unless-stopped
+    ports:
+      - "8092:8092"          # WebSocket control relay
+
+  # Static web dashboard (Stream + Remote). Serves web-viewer/ (incl. config.js).
+  dashboard:
+    image: nginx:alpine
+    container_name: gabutpoc-dashboard
+    restart: unless-stopped
+    ports:
+      - "8088:80"            # http://<server>:8088/dashboard.html
+    volumes:
+      - ../web-viewer:/usr/share/nginx/html:ro

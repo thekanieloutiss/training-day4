@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GabutPoC</string>
+    <string name="subtitle">Siarkan layar ke SRS via WebRTC</string>
+
+    <!-- default_server di-generate dari SRS_HOST di android/gradle.properties -->
+
+    <string name="info_device">Perangkat</string>
+    <string name="info_server">Server</string>
+    <string name="info_mode">Mode</string>
+    <string name="info_mode_value">H.264 · layar</string>
+
+    <string name="status_ready">SIAP</string>
+    <string name="status_ready_hint">Menyiapkan siaran…</string>
+    <string name="status_connecting">MENGHUBUNGKAN</string>
+    <string name="status_live">LIVE</string>
+    <string name="status_live_hint">Layar sedang disiarkan</string>
+    <string name="status_offline">OFFLINE</string>
+    <string name="status_stopped">Siaran dihentikan.</string>
+
+    <string name="accessibility_desc">Kontrol jarak jauh kiosk: menjalankan ketukan/gerakan agar konten dapat diperbarui dari operator.</string>
+    <string name="info_control">Kontrol</string>
+    <string name="btn_enable_stream">Aktifkan Stream</string>
+    <string name="btn_stop_stream">Hentikan Stream</string>
+    <string name="btn_enable_control">Aktifkan Full Control</string>
+    <string name="btn_control_active">Full Control Aktif ✓</string>
+</resources>

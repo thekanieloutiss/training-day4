@@ -1,0 +1,19 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+id btnControl
+id btnStream
+id statusText
+layout activity_main
+mipmap ic_launcher
+string app_name
+string default_server
+string enable_control
+string notification_channel
+string notification_text
+string start_stream
+string stop_action
+string stop_stream
+style Theme.GabutPoC
+xml accessibility_service_config

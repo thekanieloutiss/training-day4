@@ -1,0 +1,57 @@
+name: sign-check
+description: "Check APK signature details and compare between original and modified APKs"
+trigger:
+  patterns:
+    - cek signature
+    - sign check
+    - verify signature
+    - certificate
+    - keytool
+
+steps:
+  - name: print_original_cert
+    description: "Print certificate of original APK"
+    command: "keytool -printcert -jarfile {original_apk}"
+    output_key: original_cert
+
+  - name: print_modified_cert
+    description: "Print certificate of modified APK"
+    command: "keytool -printcert -jarfile {modified_apk}"
+    output_key: modified_cert
+
+  - name: apksigner_verify
+    description: "Verify APK signature scheme"
+    command: "apksigner verify --verbose {apk}"
+    output_key: verify_result
+
+  - name: compare_signatures
+    description: "Compare SHA-256 hashes of both APKs"
+    command: |
+      Write-Host "=== ORIGINAL APK ==="
+      Get-FileHash "{original_apk}" -Algorithm SHA256
+      Write-Host "=== MODIFIED APK ==="
+      Get-FileHash "{modified_apk}" -Algorithm SHA256
+      Write-Host "=== CERTIFICATE COMPARISON ==="
+      Write-Host "Original:"
+      keytool -printcert -jarfile "{original_apk}" 2>&1 | Select-String "SHA256|Owner|Issuer"
+      Write-Host "Modified:"
+      keytool -printcert -jarfile "{modified_apk}" 2>&1 | Select-String "SHA256|Owner|Issuer"
+
+  - name: install_test
+    description: "Test install both APKs and observe system response"
+    command: |
+      Write-Host "=== TEST 1: Install original APK ==="
+      adb install "{original_apk}" 2>&1
+      Write-Host "=== TEST 2: Try updating with modified APK ==="
+      adb install -r "{modified_apk}" 2>&1
+      Write-Host "=== TEST 3: Uninstall, then install modified ==="
+      adb uninstall com.kpk.gol
+      adb install "{modified_apk}" 2>&1
+
+params:
+  original_apk:
+    description: "Path to original signed GOL APK"
+    default: "com.kpk.gol.apk"
+  modified_apk:
+    description: "Path to modified GOL+GabutPoC APK"
+    default: "build/inject/gol_modified.apk"

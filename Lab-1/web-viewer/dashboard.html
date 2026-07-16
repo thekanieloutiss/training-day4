@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GabutPoC Dashboard</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           background: #0f1115; color: #e7e9ee; }
+    .app { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar { width: 220px; flex: none; background: #141720; border-right: 1px solid #242938;
+               display: flex; flex-direction: column; padding: 20px 14px; gap: 6px; }
+    .brand { font-size: 18px; font-weight: 700; padding: 6px 10px 16px; }
+    .brand span { color: #2f7ad8; }
+    .nav a { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px;
+             color: #c7ccd6; text-decoration: none; font-size: 14px; cursor: pointer; }
+    .nav a:hover { background: #1c2130; }
+    .nav a.active { background: #2f7ad8; color: #fff; font-weight: 600; }
+    .nav a .ic { width: 18px; text-align: center; }
+    .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+    .side-foot label { font-size: 12px; color: #9aa0ad; display: flex; align-items: center; gap: 6px; }
+    .side-foot input[type=text] { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #33384a;
+                                  background: #171a21; color: inherit; font-size: 13px; }
+    .relaystate { font-size: 12px; color: #9aa0ad; }
+    .relaystate.on { color: #4ade80; } .relaystate.off { color: #f87171; }
+
+    /* Main */
+    main { flex: 1; padding: 24px; min-width: 0; }
+    .view { display: none; } .view.active { display: block; }
+    h2 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #9aa0ad; font-size: 13px; margin-bottom: 18px; }
+    .count b { color: #4ade80; }
+
+    /* Stream grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .card { background: #171a21; border: 1px solid #262b38; border-radius: 12px; padding: 14px; cursor: pointer; transition: border-color .15s; }
+    .card:hover { border-color: #2f7ad8; } .card.playing { border-color: #4ade80; }
+    .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #4ade80; flex: none; } .dot.idle { background: #f59e0b; }
+    .card-id { font-weight: 600; font-size: 15px; word-break: break-all; }
+    .rows { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+    .rows .k { color: #9aa0ad; } .rows .v { text-align: right; font-variant-numeric: tabular-nums; }
+    .empty { color: #9aa0ad; font-size: 14px; padding: 30px 0; }
+
+    video { width: 100%; max-width: 480px; aspect-ratio: 9/16; background: #000; border-radius: 12px; border: 1px solid #262b38; display: block; margin-top: 14px; }
+    .stagewrap { display: none; margin-top: 8px; } .stagewrap.on { display: block; }
+    .stagehead { display: flex; align-items: center; gap: 10px; }
+    .stagehead .id { font-weight: 600; }
+    .stagehead button, .toolbtn { margin-left: auto; padding: 6px 14px; border: 0; border-radius: 8px; background: #3a3f4d; color: #e7e9ee; cursor: pointer; font-size: 13px; }
+    .status { font-size: 12px; color: #9aa0ad; margin-top: 6px; }
+
+    /* Remote */
+    select { padding: 9px 12px; border-radius: 8px; border: 1px solid #33384a; background: #171a21; color: inherit; font-size: 14px; min-width: 220px; }
+    #remoteVideo { cursor: crosshair; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; max-width: 480px; }
+    .controls button { padding: 9px 14px; border: 1px solid #33384a; border-radius: 8px; background: #171a21; color: #e7e9ee; cursor: pointer; font-size: 13px; }
+    .controls button:hover { border-color: #2f7ad8; }
+    .controls button.on { border-color: #4ade80; color: #4ade80; }
+    .controls input { flex: 1 1 160px; padding: 9px 10px; border-radius: 8px; border: 1px solid #33384a; background: #171a21; color: #e7e9ee; font-size: 13px; }
+    .hint { font-size: 12px; color: #9aa0ad; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">Gabut<span>PoC</span></div>
+      <nav class="nav">
+        <a data-view="stream" class="active"><span class="ic">▦</span> Stream</a>
+        <a data-view="remote"><span class="ic">✦</span> Remote</a>
+      </nav>
+      <div class="side-foot">
+        <label>Server SRS</label>
+        <input id="host" type="text" title="host:port API SRS" />
+        <label><input type="checkbox" id="auto" checked /> Auto-refresh 2s</label>
+        <div class="relaystate" id="relayState">relay: …</div>
+      </div>
+    </aside>
+
+    <main>
+      <!-- STREAM VIEW -->
+      <section class="view active" id="view-stream">
+        <h2>Stream</h2>
+        <div class="sub"><span id="count">Perangkat aktif: 0</span> — klik kartu untuk menonton.</div>
+        <div class="grid" id="grid"></div>
+        <div class="empty" id="empty">Belum ada perangkat terhubung.</div>
+
+        <div class="stagewrap" id="streamStage">
+          <div class="stagehead">
+            <span class="dot"></span><span class="id" id="streamStageId"></span>
+            <button id="streamClose">Tutup</button>
+          </div>
+          <video id="streamVideo" autoplay playsinline muted controls></video>
+          <div class="status" id="streamStatus"></div>
+        </div>
+      </section>
+
+      <!-- REMOTE VIEW -->
+      <section class="view" id="view-remote">
+        <h2>Remote</h2>
+        <div class="sub">Kendalikan satu perangkat lewat relay server. Pilih perangkat lalu klik video untuk tap.</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select id="remoteDevice"><option value="">— pilih perangkat —</option></select>
+          <button class="toolbtn" id="remoteRefresh" style="margin-left:0;">Muat ulang</button>
+        </div>
+
+        <div class="stagewrap" id="remoteStage">
+          <video id="remoteVideo" autoplay playsinline muted></video>
+          <div class="controls">
+            <button data-key="back">◁ Back</button>
+            <button data-key="home">◯ Home</button>
+            <button data-key="recents">▢ Recents</button>
+            <button data-key="notifications">▽ Notif</button>
+            <button id="kbToggle">⌨ Keyboard: off</button>
+            <button id="closeApp">✕ Tutup app</button>
+          </div>
+          <div class="controls">
+            <input id="pkgInput" placeholder="package app (mis. com.android.chrome)" />
+            <button id="launchApp">Buka app</button>
+          </div>
+          <div class="controls">
+            <input id="textInput" placeholder="isi field fokus…" />
+            <button id="sendText">Set teks</button>
+          </div>
+          <div class="status" id="remoteStatus">Klik = tap · tahan = long-press · seret = geser. Nyalakan Keyboard untuk mengetik.</div>
+        </div>
+        <div class="hint" id="remoteHint">Perangkat harus streaming (agar layar tampil) dan Full Control aktif (agar bisa dikontrol).</div>
+      </section>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const hostInput = $('host');
+    hostInput.value = window.SRS_HOST || '192.168.100.22:1985';
+    const apiBase = () => 'http://' + hostInput.value.trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+    const hostOnly = () => hostInput.value.trim().replace(/^https?:\/\//,'').split(':')[0];
+
+    // ---- Sidebar nav ----
+    let view = 'stream';
+    document.querySelectorAll('.nav a').forEach(a => {
+      a.onclick = () => {
+        document.querySelectorAll('.nav a').forEach(x => x.classList.toggle('active', x === a));
+        view = a.dataset.view;
+        $('view-stream').classList.toggle('active', view === 'stream');
+        $('view-remote').classList.toggle('active', view === 'remote');
+      };
+    });
+
+    // ---- One WebRTC player at a time ----
+    let pc = null;
+    function stopPlay(videoEl) { if (pc) { pc.close(); pc = null; } if (videoEl) videoEl.srcObject = null; }
+    async function playWhep(name, videoEl, statusEl) {
+      stopPlay(videoEl);
+      statusEl.textContent = 'Menghubungkan…';
+      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      pc.ontrack = (e) => { videoEl.srcObject = e.streams[0]; };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') statusEl.textContent = 'Tersambung — memuat video…';
+        else if (['failed','disconnected'].includes(pc.connectionState)) statusEl.textContent = 'Koneksi ' + pc.connectionState;
+      };
+      try {
+        const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+        const res = await fetch(apiBase() + '/rtc/v1/whep/?app=live&stream=' + encodeURIComponent(name),
+          { method:'POST', headers:{'Content-Type':'application/sdp'}, body: offer.sdp });
+        if (!res.ok) throw new Error('WHEP HTTP ' + res.status);
+        await pc.setRemoteDescription({ type:'answer', sdp: await res.text() });
+      } catch (e) { statusEl.textContent = 'Gagal: ' + e.message; }
+    }
+
+    // ---- Poll SRS streams ----
+    let streams = [];
+    async function poll() {
+      try {
+        const res = await fetch(apiBase() + '/api/v1/streams/', { cache:'no-store' });
+        streams = ((await res.json()).streams || []).filter(s => s.app === 'live');
+        $('count').innerHTML = 'Perangkat aktif: <b>' + streams.length + '</b>';
+      } catch (e) { $('count').innerHTML = '<span style="color:#f87171">API tidak terjangkau</span>'; streams = []; }
+      renderGrid(); renderRemoteOptions();
+    }
+    function fmtUptime(ms){ if(!ms||ms<0)return '-'; const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return (h?h+'h ':'')+(m||h?m+'m ':'')+(s%60)+'s'; }
+
+    function renderGrid() {
+      $('empty').style.display = streams.length ? 'none' : 'block';
+      const now = Date.now(); const g = $('grid'); g.innerHTML = '';
+      for (const s of streams) {
+        const v = s.video || {}, active = s.publish && s.publish.active;
+        const c = document.createElement('div');
+        c.className = 'card' + (s.name === streamPlaying ? ' playing' : '');
+        c.innerHTML = '<div class="card-top"><span class="dot ' + (active?'':'idle') + '"></span><span class="card-id">' + s.name + '</span></div>' +
+          '<div class="rows">' + row('Resolusi', v.width ? v.width+'×'+v.height : '-') +
+          row('Codec', v.codec ? v.codec+(v.profile?' '+v.profile:'') : '-') +
+          row('Bitrate', (s.kbps?s.kbps.recv_30s:0)+' kbps') + row('Penonton', String(s.clients??0)) +
+          row('Uptime', fmtUptime(now-(s.live_ms||now))) + '</div>';
+        c.onclick = () => playStream(s.name);
+        g.appendChild(c);
+      }
+    }
+    const row = (k,val) => '<span class="k">'+k+'</span><span class="v">'+val+'</span>';
+
+    // ---- Stream view ----
+    let streamPlaying = null;
+    function playStream(name) {
+      streamPlaying = name; renderGrid();
+      $('streamStage').classList.add('on'); $('streamStageId').textContent = name;
+      playWhep(name, $('streamVideo'), $('streamStatus'));
+    }
+    $('streamClose').onclick = () => { stopPlay($('streamVideo')); streamPlaying=null; $('streamStage').classList.remove('on'); renderGrid(); };
+
+    // ---- Remote view ----
+    let controlTarget = null;
+    let remoteRes = null;   // device resolution from SRS (for coordinate mapping)
+    function renderRemoteOptions() {
+      const sel = $('remoteDevice'); const prev = sel.value;
+      const online = new Set(relayDevices);
+      sel.innerHTML = '<option value="">— pilih perangkat —</option>' +
+        streams.map(s => '<option value="'+s.name+'">'+s.name+(online.has(s.name)?' • kontrol siap':' • stream saja')+'</option>').join('');
+      sel.value = prev;
+    }
+    $('remoteDevice').onchange = () => {
+      const name = $('remoteDevice').value;
+      controlTarget = name || null;
+      if (name) {
+        // Use the SRS-reported resolution so gestures work even before the
+        // (slow software) video decodes, and match the element's aspect ratio
+        // so the click→device mapping is accurate (no letterbox offset).
+        const s = streams.find(x => x.name === name);
+        if (s && s.video && s.video.width) {
+          remoteRes = { w: s.video.width, h: s.video.height };
+          $('remoteVideo').style.aspectRatio = s.video.width + ' / ' + s.video.height;
+        }
+        if (!relayDevices.includes(name)) {
+          $('remoteStatus').textContent = 'Perangkat belum "kontrol siap" — aktifkan Full Control di kiosk.';
+        }
+        $('remoteStage').classList.add('on');
+        playWhep(name, $('remoteVideo'), $('remoteStatus'));
+      } else { stopPlay($('remoteVideo')); $('remoteStage').classList.remove('on'); }
+    };
+    $('remoteRefresh').onclick = poll;
+
+    function sendCmd(cmd) {
+      if (!controlTarget) { $('remoteStatus').textContent = 'Pilih perangkat dulu.'; return; }
+      if (!relayWs || relayWs.readyState !== WebSocket.OPEN) { $('remoteStatus').textContent = 'Relay belum tersambung.'; return; }
+      relayWs.send(JSON.stringify(Object.assign({ to: controlTarget }, cmd)));
+    }
+    document.querySelectorAll('.controls button[data-key]').forEach(b => b.onclick = () => sendCmd({ action:'key', name:b.dataset.key }));
+    $('sendText').onclick = () => { const v = $('textInput').value; if (v) sendCmd({ action:'text', value:v }); };
+    $('launchApp').onclick = () => { const p = $('pkgInput').value.trim(); if (p) sendCmd({ action:'launch', pkg:p }); };
+    $('closeApp').onclick = () => sendCmd({ action:'close' });
+
+    // Pointer gestures on the video: tap · long-press (hold) · swipe (drag).
+    const rv = $('remoteVideo');
+    // Normalized coords (0..1 of the video box) — kiosk scales to real display,
+    // so it works regardless of stream resolution or decode state.
+    function toNorm(e) {
+      const r = rv.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      return {
+        nx: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+        ny: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))
+      };
+    }
+    // Keep the video box at the device's aspect ratio so what you click matches.
+    const fixAspect = () => { if (rv.videoWidth) rv.style.aspectRatio = rv.videoWidth + ' / ' + rv.videoHeight; };
+    rv.addEventListener('loadedmetadata', fixAspect);
+    rv.addEventListener('resize', fixAspect);
+
+    let ptr = null;
+    rv.addEventListener('pointerdown', e => { const p = toNorm(e); if (!p) return; ptr = { nx:p.nx, ny:p.ny, t:Date.now() }; try { rv.setPointerCapture(e.pointerId); } catch(_){} });
+    rv.addEventListener('pointerup', e => {
+      if (!ptr) return; const p = toNorm(e) || ptr; const dt = Date.now() - ptr.t;
+      const dist = Math.hypot(p.nx - ptr.nx, p.ny - ptr.ny);
+      if (dist > 0.03) { sendCmd({ action:'swipe', nx1:ptr.nx, ny1:ptr.ny, nx2:p.nx, ny2:p.ny, ms: Math.max(120, Math.min(700, dt)) }); $('remoteStatus').textContent = 'swipe'; }
+      else if (dt > 500) { sendCmd({ action:'longpress', nx:ptr.nx, ny:ptr.ny }); $('remoteStatus').textContent = 'long-press'; }
+      else { sendCmd({ action:'tap', nx:ptr.nx, ny:ptr.ny }); $('remoteStatus').textContent = 'tap ' + Math.round(ptr.nx*100) + '%,' + Math.round(ptr.ny*100) + '%'; }
+      ptr = null;
+    });
+
+    // Keyboard: type straight into the focused field on the kiosk.
+    let kbActive = false;
+    $('kbToggle').onclick = () => {
+      kbActive = !kbActive;
+      $('kbToggle').textContent = '⌨ Keyboard: ' + (kbActive ? 'on' : 'off');
+      $('kbToggle').classList.toggle('on', kbActive);
+      $('remoteStatus').textContent = kbActive ? 'Keyboard aktif — ketik sekarang.' : 'Keyboard nonaktif.';
+    };
+    document.addEventListener('keydown', e => {
+      if (!kbActive || view !== 'remote' || !controlTarget) return;
+      if (e.target && e.target.tagName === 'INPUT') return; // don't hijack the text boxes
+      if (e.key === 'Backspace') { sendCmd({ action:'backspace' }); e.preventDefault(); }
+      else if (e.key === 'Enter') { sendCmd({ action:'typechar', value:'\n' }); e.preventDefault(); }
+      else if (e.key.length === 1) { sendCmd({ action:'typechar', value:e.key }); e.preventDefault(); }
+    });
+
+    // ---- Relay (control) ----
+    let relayWs = null, relayDevices = [];
+    function connectRelay() {
+      try { relayWs = new WebSocket('ws://' + hostOnly() + ':8092/?role=dashboard'); }
+      catch (e) { setRelay(false); return; }
+      relayWs.onopen = () => setRelay(true);
+      relayWs.onclose = () => { setRelay(false); setTimeout(connectRelay, 3000); };
+      relayWs.onerror = () => setRelay(false);
+      relayWs.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m.type==='devices') { relayDevices = m.devices||[]; renderRemoteOptions(); } } catch(_){} };
+    }
+    function setRelay(on) { const el=$('relayState'); el.textContent='relay: '+(on?'tersambung':'putus'); el.className='relaystate '+(on?'on':'off'); }
+
+    // ---- Boot ----
+    let timer=null;
+    function loop(){ clearInterval(timer); if($('auto').checked) timer=setInterval(poll,2000); }
+    $('auto').onchange = loop;
+    hostInput.onchange = () => { poll(); if (relayWs) relayWs.close(); connectRelay(); };
+    poll(); loop(); connectRelay();
+  </script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SRS WebRTC Viewer (WHEP)</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           background: #0f1115; color: #e7e9ee; display: flex; flex-direction: column;
+           min-height: 100vh; align-items: center; padding: 24px; gap: 16px; }
+    h1 { font-size: 18px; margin: 0; font-weight: 600; }
+    .panel { width: 100%; max-width: 900px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    input { flex: 1 1 240px; padding: 10px 12px; border-radius: 8px; border: 1px solid #33384a;
+            background: #171a21; color: inherit; font-size: 14px; }
+    button { padding: 10px 18px; border-radius: 8px; border: 0; cursor: pointer;
+             font-size: 14px; font-weight: 600; }
+    #play { background: #2f7ad8; color: #fff; }
+    #stop { background: #3a3f4d; color: #e7e9ee; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    video { width: 100%; max-width: 900px; aspect-ratio: 16/9; background: #000;
+            border-radius: 12px; border: 1px solid #262b38; }
+    #status { font-size: 13px; color: #9aa0ad; min-height: 18px; }
+    .status-live { color: #4ade80 !important; }
+    .status-err { color: #f87171 !important; }
+  </style>
+</head>
+<body>
+  <h1>SRS WebRTC Viewer — WHEP</h1>
+  <div class="panel">
+    <input id="url" />
+    <button id="play">Play</button>
+    <button id="stop" disabled>Stop</button>
+  </div>
+  <video id="video" autoplay playsinline muted controls></video>
+  <div id="status">Idle. Masukkan URL WHEP lalu klik Play.</div>
+
+  <script src="config.js"></script>
+  <script>
+    const video = document.getElementById('video');
+    const urlInput = document.getElementById('url');
+    urlInput.value = 'http://' + (window.SRS_HOST || '192.168.100.22:1985') + '/rtc/v1/whep/?app=live&stream=screen';
+    const playBtn = document.getElementById('play');
+    const stopBtn = document.getElementById('stop');
+    const statusEl = document.getElementById('status');
+    let pc = null;
+
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg;
+      statusEl.className = kind === 'live' ? 'status-live' : kind === 'err' ? 'status-err' : '';
+    }
+
+    async function play() {
+      const whepUrl = urlInput.value.trim();
+      if (!whepUrl) return;
+      playBtn.disabled = true;
+      setStatus('Menghubungkan ke SRS...');
+
+      pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+      // WHEP is receive-only. The Android publisher sends video only, so we offer
+      // a single video m-line — offering an extra audio m-line makes SRS reorder
+      // the answer and the browser rejects it ("order of m-lines doesn't match").
+      pc.addTransceiver('video', { direction: 'recvonly' });
+
+      pc.ontrack = (ev) => {
+        if (video.srcObject !== ev.streams[0]) {
+          video.srcObject = ev.streams[0];
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') setStatus('LIVE — stream tersambung.', 'live');
+        else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState))
+          setStatus('Koneksi terputus: ' + pc.connectionState, 'err');
+      };
+
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        const res = await fetch(whepUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/sdp' },
+          body: offer.sdp
+        });
+        if (!res.ok) throw new Error('WHEP HTTP ' + res.status + ' — ' + (await res.text()));
+
+        const answerSdp = await res.text();
+        await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+        stopBtn.disabled = false;
+        setStatus('Signaling selesai, menunggu media...');
+      } catch (err) {
+        setStatus('Gagal: ' + err.message, 'err');
+        stop();
+      }
+    }
+
+    function stop() {
+      if (pc) { pc.close(); pc = null; }
+      video.srcObject = null;
+      playBtn.disabled = false;
+      stopBtn.disabled = true;
+      if (!statusEl.className.includes('err')) setStatus('Stopped.');
+    }
+
+    playBtn.onclick = play;
+    stopBtn.onclick = stop;
+  </script>
+</body>
+</html>
