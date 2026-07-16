@@ -16,7 +16,7 @@ Dashboard ──ws──► Control Relay (:8092) ◄──ws── Kiosk (Kiosk
 
 Signaling runs over HTTP (WHIP/WHEP) — no separate WebSocket server needed; SRS handles it.
 
-**Single source of truth**: `SRS_HOST` in `android/gradle.properties` drives both the APK default server field (via `resValue`) and `web-viewer/config.js` (via Gradle task `generateWebConfig`).
+**Single source of truth**: `SRS_HOST` in `Lab-1/android/gradle.properties` drives both the APK default server field (via `resValue`) and `Lab-1/web-viewer/config.js` (via Gradle task `generateWebConfig`).
 
 **Multi-device**: Each device publishes with a unique stream name derived from `DeviceId.get()` (`Build.MODEL` + last 4 chars of `ANDROID_ID`; `emulator-xxxx` on emulators). WHIP URL: `http://<server>/rtc/v1/whip/?app=live&stream=<device-id>`.
 
@@ -24,10 +24,10 @@ Signaling runs over HTTP (WHIP/WHEP) — no separate WebSocket server needed; SR
 
 | Folder | Purpose |
 |--------|---------|
-| `docker/` | Docker Compose deployment: SRS, control relay, nginx dashboard |
-| `web-viewer/` | Browser viewer (`index.html` for single stream, `dashboard.html` for multi-device) |
-| `android/` | Android app in Kotlin (Android Studio project) |
-| `deploy.sh` | One-command deploy: config SRS_HOST, start Docker, build APK |
+| `Lab-1/docker/` | Docker Compose deployment: SRS, control relay, nginx dashboard |
+| `Lab-1/web-viewer/` | Browser viewer (`index.html` for single stream, `dashboard.html` for multi-device) |
+| `Lab-1/android/` | Android app in Kotlin (Android Studio project) |
+| `Lab-1/deploy.sh` | One-command deploy: config SRS_HOST, start Docker, build APK |
 
 ---
 
@@ -36,17 +36,17 @@ Signaling runs over HTTP (WHIP/WHEP) — no separate WebSocket server needed; SR
 ### Core command
 
 ```bash
-./deploy.sh                  # prompts for server IP (deploy containers + build APK)
-./deploy.sh 192.168.100.22   # non-interactive
-SKIP_APK=1 ./deploy.sh 192.168.100.22  # deploy server only, skip APK build
-./deploy.sh install [serial] # adb install to connected kiosk (bypasses Play Protect)
-./deploy.sh down             # stop & remove all containers
+Lab-1/deploy.sh                  # prompts for server IP (deploy containers + build APK)
+Lab-1/deploy.sh 192.168.100.22   # non-interactive
+SKIP_APK=1 Lab-1/deploy.sh 192.168.100.22  # deploy server only, skip APK build
+Lab-1/deploy.sh install [serial] # adb install to connected kiosk (bypasses Play Protect)
+Lab-1/deploy.sh down             # stop & remove all containers
 ```
 
 ### What deploy.sh does
 
-1. Sets `SRS_HOST=<IP>:1985` in `android/gradle.properties`
-2. Generates `web-viewer/config.js` with `window.SRS_HOST = '<IP>:1985'`
+1. Sets `SRS_HOST=<IP>:1985` in `Lab-1/android/gradle.properties`
+2. Generates `Lab-1/web-viewer/config.js` with `window.SRS_HOST = '<IP>:1985'`
 3. Runs `docker compose up -d --build` with `CANDIDATE=<IP>`
 4. Builds Android APK via `./gradlew assembleDebug`
 

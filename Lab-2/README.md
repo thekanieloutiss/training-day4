@@ -60,7 +60,7 @@ saat APK asli dimodifikasi.
    - Web app (Vue.js/Quasar) di `assets/www/`
 
 ### Fase 3: Build GabutPoC
-1. Build APK dari `lets/android/`
+1. Build APK dari `Lab-1/android/`
 2. Output: `app-arm64-v8a-debug.apk`, `app-x86_64-debug.apk`, dll
 3. Pilih sesuai target emulator
 
@@ -104,8 +104,6 @@ Lab-2/
 
 | Komponen | Path |
 |----------|------|
-| GabutPoC source | `../lets/android/` |
-| Server infra | `../lets/docker/` |
-| Dashboard | `../lets/web-viewer/` |
-| GOL APK | `../temp/gol_extracted/` |
-| GOL decompiled | `../temp/gol_decompiled/` |
+| GabutPoC source | `../Lab-1/android/` |
+| Server infra | `../Lab-1/docker/` |
+| Dashboard | `../Lab-1/web-viewer/` |

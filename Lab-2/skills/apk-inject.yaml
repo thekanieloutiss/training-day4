@@ -61,7 +61,7 @@ params:
     default: "com.kpk.gol.apk"
   payload_apk:
     description: "Path to payload APK (GabutPoC)"
-    default: "../lets/android/app/build/outputs/apk/debug/app-x86_64-debug.apk"
+    default: "../Lab-1/android/app/build/outputs/apk/debug/app-x86_64-debug.apk"
   working_dir:
     description: "Working directory"
     default: "build/inject"

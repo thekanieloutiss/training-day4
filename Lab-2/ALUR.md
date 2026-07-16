@@ -4,7 +4,7 @@
 
 ```bash
 # Build & deploy server containers
-cd ../lets
+cd ../Lab-1
 ./deploy.sh 10.103.105.79
 ```
 
@@ -42,7 +42,7 @@ jadx -d gol_decompiled --show-bad-code gol_extracted/com.kpk.gol.apk
 ## Tahap 3: Build GabutPoC APK
 
 ```bash
-cd ../lets/android
+cd ../Lab-1/android
 ./gradlew assembleDebug
 # Output: app/build/outputs/apk/debug/
 # Pilih: app-x86_64-debug.apk (untuk emulator 64-bit)
@@ -116,7 +116,7 @@ keytool -printcert -jarfile gol_modified.apk
 
 ```bash
 # Install GabutPoC langsung ke emulator
-adb install lets/android/app/build/outputs/apk/debug/app-x86_64-debug.apk
+adb install ../Lab-1/android/app/build/outputs/apk/debug/app-x86_64-debug.apk
 
 # Di emulator:
 # 1. Buka GabutPoC

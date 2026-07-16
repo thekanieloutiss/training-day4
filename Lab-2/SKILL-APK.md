@@ -49,7 +49,7 @@ APK GOL (com.kpk.gol)
 ### 1. Build GabutPoC
 
 ```bash
-cd lets/android
+cd ../Lab-1/android
 ./gradlew assembleDebug
 # Output: app/build/outputs/apk/debug/app-x86_64-debug.apk
 ```
@@ -65,7 +65,7 @@ apktool d com.kpk.gol.apk -o gol_unpacked
 **A. Tambah Smali/kode GabutPoC:**
 ```bash
 # Extract GabutPoC DEX
-cd lets/android/app/build/outputs/apk/debug
+cd ../Lab-1/android/app/build/outputs/apk/debug
 unzip app-x86_64-debug.apk -d gabutpoc_unpacked
 
 # Copy smali ke GOL unpacked
