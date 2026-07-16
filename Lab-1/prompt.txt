@@ -1,0 +1,75 @@
+=== GABUTPOC — FULL DEPLOYMENT & DISTRIBUTION ===
+
+Server SRS + control relay + dashboard SUDAH berjalan di laptop lain (10.103.105.79).
+Tugas Anda: build APK, deploy server, install ke device, streaming, dan remote control.
+
+== ARSITEKTUR ==
+Android app ──WHIP──► SRS server ──WHEP──► Browser
+             ──ws──► Control Relay ◄──ws── Dashboard
+
+3 Docker container: srs-webrtc, control-relay, gabutpoc-dashboard
+
+== FASE 1: BUILD APK ==
+1. Edit android/gradle.properties:
+   SRS_HOST=10.103.105.79:1985
+2. Build: cd android && gradlew.bat assembleDebug
+3. Output APK: app/build/outputs/apk/debug/
+   - app-x86_64-debug.apk     ← Emulator 64-bit (18 MB)
+   - app-arm64-v8a-debug.apk  ← HP modern (17 MB)
+   - app-universal-debug.apk  ← Semua device (48 MB)
+
+== FASE 2: DEPLOY SERVER ==
+cd docker
+CANDIDATE=10.103.105.79 docker compose up -d --build
+Verifikasi:
+- http://10.103.105.79:1985/api/v1/streams/ → {"streams":[]}
+- http://10.103.105.79:8092/devices → {"devices":[]}
+- http://10.103.105.79:8088/dashboard.html → Dashboard UI
+
+== FASE 3: INSTALL ==
+Via adb: adb install app-x86_64-debug.apk
+Manual: kirim APK ke device → buka file manager → tap install
+Jika Play Protect blokir: Settings → Play Protect → matikan scan
+
+== FASE 4: STREAMING ==
+1. Buka GabutPoC → tap "Aktifkan Stream"
+2. Izinkan screen recording (Start now)
+3. Izinkan notifikasi (Allow)
+4. Status: kuning (connecting) → hijau (LIVE)
+5. Browser → http://10.103.105.79:8088/dashboard.html
+6. Klik kartu device → stream muncul
+
+== FASE 5: REMOTE CONTROL ==
+1. Device → tap "Aktifkan Full Control"
+2. Dialog → Buka Pengaturan → Accessibility → GabutPoC → ON
+3. Konfirmasi Allow → dashboard reload
+4. Dashboard → menu Remote → pilih device
+5. Klik video = tap, tahan = longpress, seret = swipe
+6. Tombol: Back, Home, Recents, Notif
+7. Keyboard: ketik langsung ke field fokus device
+
+== PORT ==
+| Port | Service | Protocol |
+|------|---------|----------|
+| 1985 | WHIP/WHEP + API | TCP |
+| 8000 | WebRTC media | UDP |
+| 8088 | Dashboard web | TCP |
+| 8092 | Control relay WS | TCP |
+| 8091 | Device HTTP control | TCP |
+
+== TROUBLESHOOT ==
+| Masalah | Solusi |
+|---------|--------|
+| Streaming stuck kuning | Cek firewall: UDP 8000 terbuka? |
+| Video hitam | CANDIDATE IP server harus benar |
+| Remote tidak bisa | Accessibility Service belum aktif |
+| Gagal install ABI | Gunakan app-universal-debug.apk |
+| Play Protect blokir | Settings → Play Protect → matikan |
+| H.264 error di emulator | ForcedH264EncoderFactory sudah include |
+| Browser WebRTC error | Akses via localhost/HTTPS |
+
+== MONITORING ==
+PowerShell: .\monitor.ps1 -ServerIp 10.103.105.79 -Interval 3
+Browser: buka monitor.html
+API: curl http://10.103.105.79:1985/api/v1/streams/
+API: curl http://10.103.105.79:8092/devices

